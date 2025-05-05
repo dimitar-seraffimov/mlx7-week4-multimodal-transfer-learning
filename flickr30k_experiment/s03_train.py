@@ -1,0 +1,87 @@
+import os
+import torch
+torch.manual_seed(42)
+from torch.utils.data import DataLoader
+import wandb
+from caption_model import ImageCaptioningModel
+from s01_dataset_flickr30k import Flickr30kCaptionDataset
+from open_clip import get_tokenizer
+from tqdm import tqdm
+
+#
+#
+# SETUP
+#
+#
+
+BATCH_SIZE = 32
+EPOCHS = 5
+MAX_LEN = 30
+LEARNING_RATE = 3e-4
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+# Initialize tokenizer and vocab size
+tokenizer = get_tokenizer('ViT-B-32')
+vocab_size = tokenizer.vocab_size
+pad_id = tokenizer.encoder.get('<|endoftext|>', 0)
+
+# Prepare dataset and dataloader
+train_ds = Flickr30kCaptionDataset(split='train',
+                                   max_caption_len=MAX_LEN,
+                                   image_size=224)
+train_loader = DataLoader(train_ds,
+                          batch_size=BATCH_SIZE,
+                          shuffle=True,
+                          num_workers=4)
+
+# Initialize model
+model = ImageCaptioningModel(
+    decoder_vocab_size=vocab_size,
+    decoder_max_len=MAX_LEN
+).to(DEVICE)
+
+# Optimizer and loss
+optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+criterion = torch.nn.CrossEntropyLoss(ignore_index=pad_id)
+
+# Initialize W&B
+wandb.init(project='clip_captioning', name='train_local_dataset')
+wandb.config.update({
+    'batch_size': BATCH_SIZE,
+    'epochs': EPOCHS,
+    'learning_rate': LEARNING_RATE,
+    'max_len': MAX_LEN
+})
+
+# Training loop
+for epoch in range(1, EPOCHS + 1):
+    model.train()
+    total_loss = 0.0
+    for images, cap_in, cap_lbl in tqdm(train_loader, desc=f"Epoch {epoch}/{EPOCHS}"):
+        images = images.to(DEVICE)           # [B,3,H,W]
+        cap_in = cap_in.to(DEVICE)           # [B,T]
+        cap_lbl = cap_lbl.to(DEVICE)         # [B,T]
+
+        optimizer.zero_grad()
+        logits = model(images=images, captions=cap_in)  # [B,T,V]
+
+        # Reshape for loss: merge batch and time
+        loss = criterion(
+            logits.view(-1, vocab_size),
+            cap_lbl.view(-1)
+        )
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item()
+
+    avg_loss = total_loss / len(train_loader)
+    print(f"Epoch {epoch} — Avg Loss: {avg_loss:.4f}")
+    wandb.log({'epoch': epoch, 'train_loss': avg_loss})
+
+# Save model checkpoint
+os.makedirs('checkpoints', exist_ok=True)
+ckpt_path = 'checkpoints/clip_caption_model_local.pth'
+torch.save(model.state_dict(), ckpt_path)
+print(f"Model checkpoint saved at {ckpt_path}")
+wandb.finish()

@@ -52,17 +52,21 @@ class Flickr30kCaptionDataset(Dataset):
             raw = load_dataset("nlphuji/flickr30k", split=split)
             for row in tqdm(raw, total=len(raw)):
                 img_info = row['image']
+
+                print(f"Image info: {img_info} Type: {type(img_info)}")
+                # extract image path from image info
+                img_path = None
                 if isinstance(img_info, dict) and 'path' in img_info:
-                    # image is given as a dict with 'path'
                     img_path = img_info['path']
                 elif isinstance(img_info, Image.Image) and hasattr(img_info, 'filename') and img_info.filename:
-                    # image is a PIL Image, use its filename attribute
                     img_path = img_info.filename
                 elif isinstance(img_info, str):
-                    # image is a direct file path string
                     img_path = img_info
-                else:
-                    raise ValueError(f"Cannot extract image path from type {type(img_info)}")
+
+                # validate that path exists
+                if not img_path or not os.path.exists(img_path):
+                    print(f"[WARNING] Skipping invalid image path: {img_path}")
+                    continue
 
                 # tokenize and produce one sample per caption
                 for raw_caption in row['caption']:

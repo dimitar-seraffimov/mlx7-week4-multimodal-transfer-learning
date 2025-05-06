@@ -2,31 +2,31 @@ import torch
 import torch.nn as nn
 import open_clip
 from decoder_transformer import TransformerDecoder
+from clip_utils import load_clip_model, DEVICE
 
 
 class ImageCaptioningModel(nn.Module):
   def __init__(self, 
-              decoder_vocab_size: int,
-              decoder_max_len: int,
-              decoder_embed_dim: int = 512,
-              decoder_num_heads: int = 8,
-              decoder_ff_dim: int = 2048,
-              decoder_num_layers: int = 6,
-              clip_model_name: str = 'ViT-B-32',
-              clip_pretrained: str = 'openai',
-              device: str = 'cuda' if torch.cuda.is_available() else 'cpu'):
+        decoder_vocab_size: int,
+        decoder_max_len: int,
+        decoder_embed_dim: int = 512,
+        decoder_num_heads: int = 8,
+        decoder_ff_dim: int = 2048,
+        decoder_num_layers: int = 6,
+        clip_model_name: str = 'ViT-B-32',
+        clip_pretrained: str = 'openai',
+        quick_gelu: bool = True
+    ):
     super().__init__()
 
-    # Load pretrained CLIP encoder (frozen)
-    self.clip_model, _, self.clip_preprocess = open_clip.create_model_and_transforms(
-        clip_model_name, pretrained=clip_pretrained)
-    self.clip_model = self.clip_model.to(device)
-    self.clip_model.eval()  # freeze CLIP
+    # CLIP encoder (frozen)
+    self.clip_model, self.clip_preprocess = load_clip_model(
+        model_name=clip_model_name,
+        pretrained=clip_pretrained,
+        quick_gelu=quick_gelu
+    )
 
-    for param in self.clip_model.parameters():
-        param.requires_grad = False
-
-    # define decoder
+    # Transformer decoder
     self.decoder = TransformerDecoder(
         vocab_size=decoder_vocab_size,
         max_len=decoder_max_len,

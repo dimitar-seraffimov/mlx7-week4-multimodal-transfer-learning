@@ -56,7 +56,7 @@ _Internal functionality:_
 
 ---
 
-**`s03_train.py`**
+**`s03_training.py`**
 _Internal functionality:_
 
 - load preprocessed dataset triples

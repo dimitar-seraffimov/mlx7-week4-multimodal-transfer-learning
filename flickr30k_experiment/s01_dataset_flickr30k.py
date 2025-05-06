@@ -12,15 +12,18 @@ class Flickr30kCaptionDataset(Dataset):
                  max_caption_len=30,
                  image_size=224):
         super().__init__()
-        # Load nlphuji Flickr30k (only 'test' split available)
+        # fetch the dataset metadata from HuggingFace nlphuji Flickr30k (only 'test' split available)
+        # - "nlphuji/flickr30k" has only 'test' split
+        # - load_dataset returns a list-like object of rows
         ds = load_dataset("nlphuji/flickr30k", split=split)
 
         # CLIP tokenizer for captions
         self.tokenizer = get_tokenizer('ViT-B-32')
         self.bos_id = self.tokenizer.encoder.get('<|startoftext|>', 0)
         self.eos_id = self.tokenizer.encoder.get('<|endoftext|>', 0)
-        self.pad_id = 0  # Use 0 as pad
+        self.pad_id = 0  # use 0 as pad
 
+        # prepare image transform - store params for later use
         self.max_caption_len = max_caption_len
         self.image_transform = transforms.Compose([
             transforms.Resize((image_size, image_size)),
@@ -28,13 +31,14 @@ class Flickr30kCaptionDataset(Dataset):
             transforms.Normalize([0.5], [0.5]),
         ])
 
+        # prepare in-memory list of samples
         self.samples = []
         self._prepare_samples(ds)
 
     def _prepare_samples(self, ds):
         print("Preparing (image_tensor, caption_input, caption_label) from nlphuji/flickr30k...")
         for row in tqdm(ds, total=len(ds)):
-            # Load image (datasets.Image returns PIL.Image)
+            # load image (datasets.Image returns PIL.Image)
             img_info = row['image']
             if isinstance(img_info, dict) and 'path' in img_info:
                 img = Image.open(img_info['path']).convert('RGB')

@@ -5,8 +5,8 @@ import open_clip
 from torchvision import transforms
 from tqdm import tqdm
 import pandas as pd
+from clip_utils import load_clip_model, DEVICE
 
-#
 #
 # SETUP
 #
@@ -16,22 +16,6 @@ MODEL_NAME = 'ViT-B-32'
 PRETRAINED = 'openai'
 SPLIT = 'test'
 OUTPUT_PATH = 'clip_image_embeddings.parquet'
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-#
-#
-# LOAD CLIP MODEL
-#
-#
-
-def load_clip_model():
-  # Load pretrained CLIP and preprocess transforms
-  model, _, preprocess = open_clip.create_model_and_transforms(MODEL_NAME, pretrained=PRETRAINED)
-  model = model.to(DEVICE)
-  model.eval()
-  for p in model.parameters():
-      p.requires_grad = False
-  return model, preprocess
 
 #
 #
@@ -43,7 +27,7 @@ def main():
   # load the nlphuji/flickr30k split
   ds = load_dataset('nlphuji/flickr30k', split=SPLIT)
 
-  model, preprocess = load_clip_model()
+  model, preprocess = load_clip_model(MODEL_NAME, PRETRAINED, quick_gelu=True)
   records = []
 
   # encode each image

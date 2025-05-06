@@ -7,6 +7,9 @@ from open_clip import get_tokenizer
 from tqdm import tqdm
 import os
 import io
+import pandas as pd
+import base64
+from concurrent.futures import ThreadPoolExecutor
 
 
 class Flickr30kCaptionDataset(Dataset):
@@ -50,38 +53,53 @@ class Flickr30kCaptionDataset(Dataset):
             print("Building and caching triplets for the first time...")
             self.samples = []
             raw = load_dataset("nlphuji/flickr30k", split=split)
-            for row in tqdm(raw, total=len(raw)):
-                img_info = row['image']
+            
+            print("Encoding images in parallel...")
+            def encode_image(row):
                 img_bytes = io.BytesIO()
-                img_info.save(img_bytes, format='PNG')
-                image_bytes = img_bytes.getvalue()
+                row['image'].save(img_bytes, format='PNG')
+                return base64.b64encode(img_bytes.getvalue()).decode('utf-8'), row['caption']
 
-                for raw_caption in row['caption']:
-                    token_ids = self.tokenizer([raw_caption])[0].tolist()
-                    input_ids = [self.bos_id] + token_ids
-                    label_ids = token_ids + [self.eos_id]
-                    input_ids = input_ids[:self.max_caption_len] + [self.pad_id] * (self.max_caption_len - len(input_ids))
-                    label_ids = label_ids[:self.max_caption_len] + [self.pad_id] * (self.max_caption_len - len(label_ids))
-                    self.samples.append({
-                        'image_bytes': image_bytes,
-                        'caption_in': input_ids,
-                        'caption_label': label_ids
-                    })
+            with ThreadPoolExecutor() as executor:
+                results = list(tqdm(executor.map(encode_image, raw), total=len(raw)))
 
-            torch.save(self.samples, self.cache_file)
+            caption_records = [(image_b64, caption)
+                               for image_b64, captions in results
+                               for caption in captions]
+
+            print("Batch tokenizing captions...")
+            captions = [c for _, c in caption_records]
+            tokenized = self.tokenizer(captions)
+            print("Building triplets...")
+            for (image_b64, _), tokens in zip(caption_records, tokenized):
+                token_ids = tokens.tolist()
+                input_ids = [self.bos_id] + token_ids
+                label_ids = token_ids + [self.eos_id]
+                input_ids = input_ids[:self.max_caption_len] + [self.pad_id] * (self.max_caption_len - len(input_ids))
+                label_ids = label_ids[:self.max_caption_len] + [self.pad_id] * (self.max_caption_len - len(label_ids))
+                self.samples.append({
+                    'image_bytes': image_b64,
+                    'caption_in': input_ids,
+                    'caption_label': label_ids
+                })
+
+            print(f"Saving {len(self.samples)} triplets to {self.cache_file} as Parquet...")
+            df = pd.DataFrame(self.samples)
+            df.to_parquet(self.cache_file, index=False)
             print(f"Saved {len(self.samples)} triplets to {self.cache_file}")
+
 
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, idx):
         record = self.samples[idx]
-        # load and transform image on-the-fly
-        img = Image.open(io.BytesIO(record['image_bytes'])).convert('RGB')
+        img = Image.open(io.BytesIO(record['image_bytes'])).convert('RGB') if isinstance(record['image_bytes'], bytes) \
+              else Image.open(io.BytesIO(base64.b64decode(record['image_bytes']))).convert('RGB')
         img_t = self.image_transform(img)
-        # convert token lists to tensors
         input_t = torch.tensor(record['caption_in'], dtype=torch.long)
         label_t = torch.tensor(record['caption_label'], dtype=torch.long)
+
         return img_t, input_t, label_t
     
 if __name__ == '__main__':

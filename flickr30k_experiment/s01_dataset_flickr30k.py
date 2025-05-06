@@ -9,7 +9,7 @@ import os
 import io
 import pandas as pd
 import base64
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 class Flickr30kCaptionDataset(Dataset):
@@ -53,15 +53,18 @@ class Flickr30kCaptionDataset(Dataset):
             print("Building and caching triplets for the first time...")
             self.samples = []
             raw = load_dataset("nlphuji/flickr30k", split=split)
-            
+
             print("Encoding images in parallel...")
             def encode_image(row):
                 img_bytes = io.BytesIO()
                 row['image'].save(img_bytes, format='PNG')
                 return base64.b64encode(img_bytes.getvalue()).decode('utf-8'), row['caption']
 
+            results = []
             with ThreadPoolExecutor() as executor:
-                results = list(tqdm(executor.map(encode_image, raw), total=len(raw)))
+                futures = [executor.submit(encode_image, row) for row in raw]
+                for f in tqdm(as_completed(futures), total=len(futures), desc="Encoding images"):
+                    results.append(f.result())
 
             caption_records = [(image_b64, caption)
                                for image_b64, captions in results
@@ -70,6 +73,7 @@ class Flickr30kCaptionDataset(Dataset):
             print("Batch tokenizing captions...")
             captions = [c for _, c in caption_records]
             tokenized = self.tokenizer(captions)
+            
             print("Building triplets...")
             for (image_b64, _), tokens in zip(caption_records, tokenized):
                 token_ids = tokens.tolist()

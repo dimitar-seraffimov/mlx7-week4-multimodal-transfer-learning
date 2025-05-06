@@ -6,6 +6,8 @@ from torchvision import transforms
 from open_clip import get_tokenizer
 from tqdm import tqdm
 import os
+import io
+
 
 class Flickr30kCaptionDataset(Dataset):
     def __init__(self,
@@ -42,36 +44,32 @@ class Flickr30kCaptionDataset(Dataset):
 
         # load or build the list of triplets
         if os.path.exists(self.cache_file):
-            # load cached metadata (small file)
             print(f"Loading cached triplets from {self.cache_file}...")
             self.samples = torch.load(self.cache_file)
         else:
-            # build from raw dataset
             print("Building and caching triplets for the first time...")
             self.samples = []
             raw = load_dataset("nlphuji/flickr30k", split=split)
             for row in tqdm(raw, total=len(raw)):
                 img_info = row['image']
+                img_bytes = io.BytesIO()
+                img_info.save(img_bytes, format='PNG')
+                image_bytes = img_bytes.getvalue()
 
-                # tokenize and produce one sample per caption
                 for raw_caption in row['caption']:
                     token_ids = self.tokenizer([raw_caption])[0].tolist()
-                    # prepare input and target sequences
                     input_ids = [self.bos_id] + token_ids
                     label_ids = token_ids + [self.eos_id]
-                    # truncate and pad to fixed length
                     input_ids = input_ids[:self.max_caption_len] + [self.pad_id] * (self.max_caption_len - len(input_ids))
                     label_ids = label_ids[:self.max_caption_len] + [self.pad_id] * (self.max_caption_len - len(label_ids))
-                    # store metadata only
                     self.samples.append({
-                        'image': img_info,
+                        'image_bytes': image_bytes,
                         'caption_in': input_ids,
                         'caption_label': label_ids
                     })
 
-        # save to disk
-        torch.save(self.samples, self.cache_file)
-        print(f"Saved {len(self.samples)} triplets to {self.cache_file}")
+            torch.save(self.samples, self.cache_file)
+            print(f"Saved {len(self.samples)} triplets to {self.cache_file}")
 
     def __len__(self):
         return len(self.samples)
@@ -79,13 +77,13 @@ class Flickr30kCaptionDataset(Dataset):
     def __getitem__(self, idx):
         record = self.samples[idx]
         # load and transform image on-the-fly
-        img = record['image'].convert('RGB')
+        img = Image.open(io.BytesIO(record['image_bytes'])).convert('RGB')
         img_t = self.image_transform(img)
         # convert token lists to tensors
         input_t = torch.tensor(record['caption_in'], dtype=torch.long)
         label_t = torch.tensor(record['caption_label'], dtype=torch.long)
         return img_t, input_t, label_t
-
+    
 if __name__ == '__main__':
     ds = Flickr30kCaptionDataset(split='test')
     print(f"Loaded {len(ds)} samples")

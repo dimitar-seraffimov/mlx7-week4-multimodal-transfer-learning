@@ -15,7 +15,7 @@ _Internal functionality:_
 - extract images and corresponding 5 captions
 - tokenize captions using SentencePiece
 - generate `(image, caption_input, caption_label)` triples
-- save preprocessed data for efficient training
+- save preprocessed data as 'flickr30k_cache.pt' for efficient training
 
 ---
 

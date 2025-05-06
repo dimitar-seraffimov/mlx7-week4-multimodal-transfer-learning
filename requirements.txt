@@ -5,7 +5,7 @@ pandas==2.2.3
 Pillow==11.2.1
 pycocoevalcap==1.2
 sentencepiece==0.2.0
-open_clip_torch==2.21.0
+open_clip_torch
 # ML libraries
 torch
 torchvision

@@ -40,10 +40,6 @@ class Flickr30kCaptionDataset(Dataset):
             transforms.Normalize([0.5], [0.5]),
         ])
 
-        # prepare in-memory list of samples
-        self.samples = []
-        self._prepare_samples(ds)
-
         # load or build the list of triplets
         if os.path.exists(self.cache_file):
             # load cached metadata (small file)
@@ -52,8 +48,8 @@ class Flickr30kCaptionDataset(Dataset):
         else:
             # build from raw dataset
             print("Building and caching triplets for the first time...")
-            raw = load_dataset("nlphuji/flickr30k", split=split)
             self.samples = []
+            raw = load_dataset("nlphuji/flickr30k", split=split)
             for row in tqdm(raw, total=len(raw)):
                 img_info = row['image']
                 img_path = img_info['path'] if isinstance(img_info, dict) else None
@@ -61,16 +57,16 @@ class Flickr30kCaptionDataset(Dataset):
                 for raw_caption in row['caption']:
                     token_ids = self.tokenizer([raw_caption])[0].tolist()
                     # prepare input and target sequences
-                    inp = [self.bos_id] + token_ids
-                    tgt = token_ids + [self.eos_id]
+                    input_ids = [self.bos_id] + token_ids
+                    label_ids = token_ids + [self.eos_id]
                     # truncate and pad to fixed length
-                    inp = inp[:self.max_caption_len] + [self.pad_id] * (self.max_caption_len - len(inp))
-                    tgt = tgt[:self.max_caption_len] + [self.pad_id] * (self.max_caption_len - len(tgt))
+                    input_ids = input_ids[:self.max_caption_len] + [self.pad_id] * (self.max_caption_len - len(input_ids))
+                    label_ids = label_ids[:self.max_caption_len] + [self.pad_id] * (self.max_caption_len - len(label_ids))
                     # store metadata only
                     self.samples.append({
                         'image_path': img_path,
-                        'caption_in': inp,
-                        'caption_label': tgt
+                        'caption_in': input_ids,
+                        'caption_label': label_ids
                     })
 
         # save to disk

@@ -53,21 +53,6 @@ class Flickr30kCaptionDataset(Dataset):
             for row in tqdm(raw, total=len(raw)):
                 img_info = row['image']
 
-                print(f"Image info: {img_info} Type: {type(img_info)}")
-                # extract image path from image info
-                img_path = None
-                if isinstance(img_info, dict) and 'path' in img_info:
-                    img_path = img_info['path']
-                elif isinstance(img_info, Image.Image) and hasattr(img_info, 'filename') and img_info.filename:
-                    img_path = img_info.filename
-                elif isinstance(img_info, str):
-                    img_path = img_info
-
-                # validate that path exists
-                if not img_path or not os.path.exists(img_path):
-                    print(f"[WARNING] Skipping invalid image path: {img_path}")
-                    continue
-
                 # tokenize and produce one sample per caption
                 for raw_caption in row['caption']:
                     token_ids = self.tokenizer([raw_caption])[0].tolist()
@@ -79,7 +64,7 @@ class Flickr30kCaptionDataset(Dataset):
                     label_ids = label_ids[:self.max_caption_len] + [self.pad_id] * (self.max_caption_len - len(label_ids))
                     # store metadata only
                     self.samples.append({
-                        'image_path': img_path,
+                        'image': img_info,
                         'caption_in': input_ids,
                         'caption_label': label_ids
                     })
@@ -94,7 +79,7 @@ class Flickr30kCaptionDataset(Dataset):
     def __getitem__(self, idx):
         record = self.samples[idx]
         # load and transform image on-the-fly
-        img = Image.open(record['image_path']).convert('RGB')
+        img = record['image'].convert('RGB')
         img_t = self.image_transform(img)
         # convert token lists to tensors
         input_t = torch.tensor(record['caption_in'], dtype=torch.long)

@@ -14,6 +14,12 @@ CLIP_MODEL = 'ViT-B-32'
 CLIP_PRETRAINED = 'openai'
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 MAX_LEN = 30
+PAD_ID = 0
+
+# initialize tokenizer and special IDs
+tokenizer = get_tokenizer(CLIP_MODEL)
+sos_id    = tokenizer(["<|startoftext|>"])[0][0]
+eos_id    = tokenizer(["<|endoftext|>"])[0][0]
 
 #
 #
@@ -30,27 +36,34 @@ def load_clip_encoder(model_name, pretrained, device):
       p.requires_grad = False
   return model, preprocess
 
-
 #
 #
 # GREEDY DECODING
 #
 #
 
-def greedy_decode(model, image_embedding, tokenizer, max_len=30):
-  sos_id = tokenizer(["<|startoftext|>"])[0][0]
-  eos_id = tokenizer(["<|endoftext|>"])[0][0]
+def greedy_decode(model, image_embedding, max_len=MAX_LEN):
   tokens = [sos_id]
-
   print(f"Greedy decoding with max len {max_len}...")
   for _ in range(max_len):
-    input_ids = torch.tensor(tokens).unsqueeze(0).to(DEVICE)
-    logits = model.decoder(input_ids, image_embedding.unsqueeze(0).unsqueeze(1))
+    input_ids = torch.tensor(tokens, device=DEVICE).unsqueeze(0)
+    logits = model.decoder(
+      input_ids,
+      image_embedding.unsqueeze(0).unsqueeze(1)
+    )
     next_token = logits[0, -1].argmax().item()
     if next_token == eos_id:
-        break
+      break
     tokens.append(next_token)
-  return tokens[1:] # remove <sos>
+
+  # drop SOS and strip trailing PAD
+  output = tokens[1:]
+  real = []
+  for t in output:
+    if t == PAD_ID:
+      break
+    real.append(t)
+  return real
 
 #
 #
@@ -59,44 +72,43 @@ def greedy_decode(model, image_embedding, tokenizer, max_len=30):
 #
 
 def generate_caption(image_path, save_output=True):
-  tokenizer = get_tokenizer(CLIP_MODEL)
+  clip_model, preprocess = load_clip_encoder(
+    CLIP_MODEL, CLIP_PRETRAINED, DEVICE
+  )
 
-  # load CLIP encoder
-  clip_model, preprocess = load_clip_encoder(CLIP_MODEL, CLIP_PRETRAINED, DEVICE)
-
-  # load image and encode
+  # load and preprocess image
   image = Image.open(image_path).convert("RGB")
   image_tensor = preprocess(image).unsqueeze(0).to(DEVICE)
   print(f"Image loaded and encoded on {DEVICE}")
 
+  # encode image
   with torch.no_grad():
     image_embedding = clip_model.encode_image(image_tensor).squeeze(0)
 
-  # Load decoder model
+  # load decoder model
   vocab_size = tokenizer.vocab_size
   model = ImageCaptioningModel(
-      decoder_vocab_size=vocab_size,
-      decoder_max_len=MAX_LEN
+    decoder_vocab_size=vocab_size,
+    decoder_max_len=MAX_LEN
   ).to(DEVICE)
   model.load_state_dict(torch.load(MODEL_CHECKPOINT, map_location=DEVICE))
   model.eval()
 
-  tokens = greedy_decode(model, image_embedding, tokenizer, max_len=MAX_LEN)
-  caption = tokenizer.decode(tokens).strip()
+  # generate tokens and decode to text
+  token_ids = greedy_decode(model, image_embedding)
+  caption = tokenizer.decode(token_ids).strip()
 
-  # show image + caption
+  # display
   plt.imshow(image)
   plt.axis("off")
   plt.title(f"Predicted caption:\n{caption}", fontsize=12)
   if save_output:
-      output_path = "final_output.jpg"
-      plt.savefig(output_path, bbox_inches="tight")
-      print(f"Saved output to {output_path}")
-
+    out = "final_output.jpg"
+    plt.savefig(out, bbox_inches="tight")
+    print(f"Saved output to {out}")
   plt.show()
 
   return caption
-
 #
 #
 # MAIN

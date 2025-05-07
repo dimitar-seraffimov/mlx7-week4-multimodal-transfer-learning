@@ -27,8 +27,10 @@ timestamp = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
 
 # initialize tokenizer and vocab size   
 tokenizer = get_tokenizer('ViT-B-32')
-pad_id    = 0
-vocab_size = tokenizer.vocab_size
+sos_id    = tokenizer(["<|startoftext|>"])[0][0]
+eos_id    = tokenizer(["<|endoftext|>"])[0][0]
+pad_id    = 0  # matches model's ignore_index
+vocab_size= tokenizer.vocab_size
 
 image_transform = transforms.Compose([
     transforms.Resize((224,224)),
@@ -45,23 +47,25 @@ image_transform = transforms.Compose([
 class FlickrCaptionIter(IterableDataset):
     def __init__(self, split, max_len, sample_size):
         ds = load_dataset("nlphuji/flickr30k", split=split, streaming=True)
-        self.stream = iter(ds.shuffle(buffer_size=1000))
-        self.max_len = max_len
+        self.stream      = iter(ds.shuffle(buffer_size=1000))
+        self.max_len     = max_len
         self.sample_size = sample_size
 
     def __iter__(self):
         count = 0
         for row in self.stream:
-            img = row['image'].convert('RGB')
-            img_t = image_transform(img)
+            img_t = image_transform(row['image'].convert('RGB'))
             for cap in row['caption']:
                 tokens = tokenizer([cap])[0].tolist()
-                seq = tokens[:self.max_len]
-                padded = seq + [pad_id] * (self.max_len - len(seq))
-                # input and label are the same
-                yield img_t, torch.tensor(padded), torch.tensor(padded)
+                # add SOS/EOS
+                inp = [sos_id] + tokens
+                lbl = tokens + [eos_id]
+                # truncate and pad
+                inp = inp[:self.max_len] + [pad_id] * (self.max_len - len(inp))
+                lbl = lbl[:self.max_len] + [pad_id] * (self.max_len - len(lbl))
+                yield img_t, torch.tensor(inp), torch.tensor(lbl)
                 count += 1
-                if count>=self.sample_size:
+                if count >= self.sample_size:
                     return
 
 #
@@ -69,7 +73,6 @@ class FlickrCaptionIter(IterableDataset):
 # DATA
 # 
 #
-
 
 train_ds = FlickrCaptionIter(SPLIT, MAX_LEN, SAMPLE_SIZE)
 train_loader = DataLoader(
@@ -87,10 +90,10 @@ train_loader = DataLoader(
 #
 #
 
-model = ImageCaptioningModel(vocab_size, MAX_LEN).to(DEVICE)
+model = ImageCaptioningModel(decoder_vocab_size=vocab_size, decoder_max_len=MAX_LEN).to(DEVICE)
 print(f"Model initialized on {DEVICE} with vocab size {vocab_size} and max len {MAX_LEN}")
-optimizer   = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
-criterion  = torch.nn.CrossEntropyLoss(ignore_index=pad_id)
+optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+criterion = torch.nn.CrossEntropyLoss(ignore_index=pad_id)
 
 wandb.init(
     project='mlx7-week4-multimodal',

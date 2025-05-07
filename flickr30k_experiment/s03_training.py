@@ -27,7 +27,7 @@ timestamp = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
 # initialize tokenizer and vocab size   
 tokenizer = get_tokenizer('ViT-B-32')
 vocab_size = tokenizer.vocab_size
-pad_id = tokenizer.encoder.get('<|endoftext|>', 0)
+pad_id = 0
 
 # prepare dataset and dataloader
 train_ds = Flickr30kCaptionDataset(split=SPLIT,
@@ -36,8 +36,7 @@ train_ds = Flickr30kCaptionDataset(split=SPLIT,
 )
 train_loader = DataLoader(train_ds,
     batch_size=BATCH_SIZE,
-    shuffle=True,
-    num_workers=4
+    shuffle=True
 )
 
 # initialize model

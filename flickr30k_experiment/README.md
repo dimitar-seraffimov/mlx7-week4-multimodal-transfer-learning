@@ -10,7 +10,7 @@ Generate natural language descriptions for images from the Flickr30k dataset usi
 **`s01_dataset_flickr30k.py`**
 _Internal functionality:_
 
-- load Flickr30k dataset from HuggingFace
+- load Flickr30k dataset from HuggingFace -> no download, the dataset is huge and I don't need to create embeddings on it
 - use the pre-trained SentencePiece model
 - extract images and corresponding 5 captions
 - tokenize captions using SentencePiece
@@ -19,7 +19,7 @@ _Internal functionality:_
 
 ---
 
-**`s02_clip_encoder_loader.py`**
+**`s02_clip_encoder.py`**
 _Internal functionality:_
 
 - load pretrained CLIP model from OpenCLIP (vision + text encoder)

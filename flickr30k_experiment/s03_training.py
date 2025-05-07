@@ -27,8 +27,6 @@ timestamp = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
 
 # initialize tokenizer and vocab size   
 tokenizer = get_tokenizer('ViT-B-32')
-sos_id    = tokenizer.sos_id
-eos_id    = tokenizer.eos_id
 pad_id    = 0
 vocab_size = tokenizer.vocab_size
 
@@ -58,11 +56,10 @@ class FlickrCaptionIter(IterableDataset):
             img_t = image_transform(img)
             for cap in row['caption']:
                 tokens = tokenizer([cap])[0].tolist()
-                inp = [sos_id] + tokens
-                lbl = tokens + [eos_id]
-                inp = inp[:self.max_len] + [pad_id]*(self.max_len-len(inp))
-                lbl = lbl[:self.max_len] + [pad_id]*(self.max_len-len(lbl))
-                yield img_t, torch.tensor(inp), torch.tensor(lbl)
+                seq = tokens[:self.max_len]
+                padded = seq + [pad_id] * (self.max_len - len(seq))
+                # input and label are the same
+                yield img_t, torch.tensor(padded), torch.tensor(padded)
                 count += 1
                 if count>=self.sample_size:
                     return

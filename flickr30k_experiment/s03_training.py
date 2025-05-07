@@ -27,6 +27,8 @@ timestamp = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
 
 # initialize tokenizer and vocab size   
 tokenizer = get_tokenizer('ViT-B-32')
+sos_id    = tokenizer.sos_id
+eos_id    = tokenizer.eos_id
 pad_id    = 0
 vocab_size = tokenizer.vocab_size
 

@@ -1,10 +1,8 @@
 import torch
-from PIL import Image
 from datasets import load_dataset
-import open_clip
-from torchvision import transforms
-from tqdm import tqdm
 import pandas as pd
+from tqdm import tqdm
+from torch.utils.data import IterableDataset, DataLoader
 from clip_utils import load_clip_model, DEVICE
 
 #
@@ -16,7 +14,28 @@ MODEL_NAME = 'ViT-B-32'
 PRETRAINED = 'openai'
 SPLIT = 'test'
 SAMPLE_SIZE = 5000
+BATCH_SIZE = 32
 OUTPUT_PATH = 'clip_image_embeddings.parquet'
+
+#
+#
+#
+#
+#
+
+class FlickrIterDataset(IterableDataset):
+  def __init__(self, split, preprocess, limit):
+    ds = load_dataset("nlphuji/flickr30k", split=split, streaming=True)
+    self.stream = iter(ds)
+    self.preproc = preprocess
+    self.limit = limit
+
+  def __iter__(self):
+    for i, row in enumerate(self.stream):
+      if i >= self.limit:
+        break
+      img = row['image'].convert('RGB')
+      yield self.preproc(img)  # returns a tensor [3,H,W]
 
 #
 #
@@ -24,34 +43,36 @@ OUTPUT_PATH = 'clip_image_embeddings.parquet'
 #
 #
 
+
 def main():
-  # load the nlphuji/flickr30k split
-  dataset = load_dataset("nlphuji/flickr30k", split=SPLIT, streaming=True)
-  stream = iter(dataset)
+  # load model + transform
   model, preprocess = load_clip_model(MODEL_NAME, PRETRAINED, quick_gelu=True)
-  print(f"Model loaded on {DEVICE}")
+  model.to(DEVICE).eval()
+
+  # dataset + dataloader
+  ds     = FlickrIterDataset(SPLIT, preprocess, SAMPLE_SIZE)
+  loader = DataLoader(
+    ds,
+    batch_size=BATCH_SIZE,
+    num_workers=4,
+    prefetch_factor=2,
+    pin_memory=True,
+    persistent_workers=True,
+  )
+
   records = []
-  print(f"Streaming and encoding up to {SAMPLE_SIZE} images...")
-
-  count = 0
-
-  # encode each image
-  for row in tqdm(stream, total=SAMPLE_SIZE, desc="Encoding images"):
-    img = row['image'].convert('RGB')
-    img_tensor = preprocess(img).unsqueeze(0).to(DEVICE)
+  print(f"Encoding in batches of {BATCH_SIZE}…")
+  for batch in tqdm(loader, total=SAMPLE_SIZE // BATCH_SIZE):
+    imgs = batch.to(DEVICE, non_blocking=True)
     with torch.no_grad():
-      emb = model.encode_image(img_tensor).squeeze(0).cpu().numpy()
-    records.append({'embedding': emb})
+        embs = model.encode_image(imgs).cpu().numpy()
+    records.extend({'embedding': e} for e in embs)
+    if len(records) >= SAMPLE_SIZE:
+        break
 
-    count += 1
-    if count >= SAMPLE_SIZE:
-      break
-
-  # save embeddings
-  df = pd.DataFrame(records)
-  df.to_parquet(OUTPUT_PATH, index=False)
-  print(f"Saved {len(df)} embeddings to {OUTPUT_PATH}")
-
+  # save
+  pd.DataFrame(records).to_parquet(OUTPUT_PATH, index=False)
+  print(f"Saved {len(records)} embeddings to {OUTPUT_PATH}")
 
 if __name__ == '__main__':
   main()

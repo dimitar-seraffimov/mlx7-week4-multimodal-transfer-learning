@@ -45,9 +45,9 @@ def greedy_decode(model, image_embedding, tokenizer, max_len=30):
   print(f"Greedy decoding with max len {max_len}...")
   for _ in range(max_len):
     input_ids = torch.tensor(tokens).unsqueeze(0).to(DEVICE)
-    logits = model.decoder(input_ids, image_emb.unsqueeze(0).unsqueeze(1))
+    logits = model.decoder(input_ids, image_embedding.unsqueeze(0).unsqueeze(1))
     next_token = logits[0, -1].argmax().item()
-    if next_token == eos:
+    if next_token == eos_id:
         break
     tokens.append(next_token)
   return tokens[1:] # remove <sos>

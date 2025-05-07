@@ -5,68 +5,109 @@ from PIL import Image
 from torchvision import transforms
 from open_clip import get_tokenizer
 from tqdm import tqdm
+import os
+import io
+import pandas as pd
+import base64
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 class Flickr30kCaptionDataset(Dataset):
     def __init__(self,
                  split='test',
                  max_caption_len=30,
-                 image_size=224):
+                 image_size=224,
+                 cache_file='flickr30k_cache.pt'):
         super().__init__()
-        # Load nlphuji Flickr30k (only 'test' split available)
+        # fetch the dataset metadata from HuggingFace nlphuji Flickr30k (only 'test' split available)
+        # - "nlphuji/flickr30k" has only 'test' split
+        # - load_dataset returns a list-like object of rows
         ds = load_dataset("nlphuji/flickr30k", split=split)
+
+        self.split = split
+        self.max_caption_len = max_caption_len
+        self.image_size = image_size
+        self.cache_file = cache_file
 
         # CLIP tokenizer for captions
         self.tokenizer = get_tokenizer('ViT-B-32')
         self.bos_id = self.tokenizer.encoder.get('<|startoftext|>', 0)
         self.eos_id = self.tokenizer.encoder.get('<|endoftext|>', 0)
-        self.pad_id = 0  # Use 0 as pad
+        self.pad_id = 0  # use 0 as pad
 
-        self.max_caption_len = max_caption_len
+        # define image transform - store params for later use
+        # - resize to 224x224
+        # - convert to tensor
+        # - normalize to [-1, 1]
         self.image_transform = transforms.Compose([
             transforms.Resize((image_size, image_size)),
             transforms.ToTensor(),
             transforms.Normalize([0.5], [0.5]),
         ])
 
-        self.samples = []
-        self._prepare_samples(ds)
+        # load or build the list of triplets
+        if os.path.exists(self.cache_file):
+            print(f"Loading cached triplets from {self.cache_file}...")
+            self.samples = torch.load(self.cache_file)
+        else:
+            print("Building and caching triplets for the first time...")
+            self.samples = []
+            raw = load_dataset("nlphuji/flickr30k", split=split)
 
-    def _prepare_samples(self, ds):
-        print("Preparing (image_tensor, caption_input, caption_label) from nlphuji/flickr30k...")
-        for row in tqdm(ds, total=len(ds)):
-            # Load image (datasets.Image returns PIL.Image)
-            img_info = row['image']
-            if isinstance(img_info, dict) and 'path' in img_info:
-                img = Image.open(img_info['path']).convert('RGB')
-            else:
-                img = img_info.convert('RGB')
-            img_t = self.image_transform(img)
+            print("Encoding images in parallel...")
+            def encode_image(row):
+                img_bytes = io.BytesIO()
+                row['image'].save(img_bytes, format='PNG')
+                return base64.b64encode(img_bytes.getvalue()).decode('utf-8'), row['caption']
 
-            # 'caption' field: list of strings
-            for raw in row['caption']:
-                ids = self.tokenizer([raw])[0].tolist()
+            results = []
+            with ThreadPoolExecutor() as executor:
+                futures = [executor.submit(encode_image, row) for row in raw]
+                for f in tqdm(as_completed(futures), total=len(futures), desc="Encoding images"):
+                    results.append(f.result())
 
-                # prepare input and label sequences
-                inp = [self.bos_id] + ids
-                tgt = ids + [self.eos_id]
+            caption_records = [(image_b64, caption)
+                               for image_b64, captions in results
+                               for caption in captions]
 
-                # truncate
-                inp = inp[:self.max_caption_len]
-                tgt = tgt[:self.max_caption_len]
-                # pad
-                inp += [self.pad_id] * (self.max_caption_len - len(inp))
-                tgt += [self.pad_id] * (self.max_caption_len - len(tgt))
+            print("Batch tokenizing captions...")
+            captions = [c for _, c in caption_records]
+            tokenized = self.tokenizer(captions)
+            
+            print("Building triplets...")
+            for (image_b64, _), tokens in zip(caption_records, tokenized):
+                token_ids = tokens.tolist()
+                input_ids = [self.bos_id] + token_ids
+                label_ids = token_ids + [self.eos_id]
+                input_ids = input_ids[:self.max_caption_len] + [self.pad_id] * (self.max_caption_len - len(input_ids))
+                label_ids = label_ids[:self.max_caption_len] + [self.pad_id] * (self.max_caption_len - len(label_ids))
+                self.samples.append({
+                    'image_bytes': image_b64,
+                    'caption_in': input_ids,
+                    'caption_label': label_ids
+                })
 
-                self.samples.append((img_t, torch.tensor(inp), torch.tensor(tgt)))
+            print(f"Saving {len(self.samples)} triplets to {self.cache_file} as Parquet...")
+            df = pd.DataFrame(self.samples)
+            df.to_parquet(self.cache_file, index=False)
+            print(f"Saved {len(self.samples)} triplets to {self.cache_file}")
+
 
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        return self.samples[idx]
+        record = self.samples[idx]
+        img = Image.open(io.BytesIO(record['image_bytes'])).convert('RGB') if isinstance(record['image_bytes'], bytes) \
+              else Image.open(io.BytesIO(base64.b64decode(record['image_bytes']))).convert('RGB')
+        img_t = self.image_transform(img)
+        input_t = torch.tensor(record['caption_in'], dtype=torch.long)
+        label_t = torch.tensor(record['caption_label'], dtype=torch.long)
 
+        return img_t, input_t, label_t
+    
 if __name__ == '__main__':
-    ds = Flickr30kCaptionDataset(split='test', max_caption_len=30)
+    ds = Flickr30kCaptionDataset(split='test')
     print(f"Loaded {len(ds)} samples")
-    img, inp, tgt = ds[0]
-    print(f"Shapes: image {img.shape}, input {inp.shape}, target {tgt.shape}")
+    img, input, label = ds[0]
+    print(f"Shapes: image {img.shape}, input {input.shape}, label {label.shape}")

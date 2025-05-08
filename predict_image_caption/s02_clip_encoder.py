@@ -13,7 +13,8 @@ from clip_utils import load_clip_model, DEVICE
 MODEL_NAME = 'ViT-B-32'
 PRETRAINED = 'openai'
 SPLIT = 'test'
-SAMPLE_SIZE = 500
+# loading all 31783 images from the Flickr30k dataset
+SAMPLE_SIZE = 31783
 BATCH_SIZE = 32
 OUTPUT_PATH = 'clip_image_embeddings.parquet'
 
@@ -73,6 +74,12 @@ def main():
   # save
   pd.DataFrame(records).to_parquet(OUTPUT_PATH, index=False)
   print(f"Saved {len(records)} embeddings to {OUTPUT_PATH}")
+
+#
+#
+#
+#
+#
 
 if __name__ == '__main__':
   main()

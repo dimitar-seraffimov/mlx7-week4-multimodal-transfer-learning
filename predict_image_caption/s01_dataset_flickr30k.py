@@ -5,12 +5,18 @@ from torchvision import transforms
 from open_clip import get_tokenizer
 from tqdm import tqdm
 
+#
+#
+# DATASET
+#
+#
+
 class Flickr30kCaptionDataset(Dataset):
     def __init__(self,
                  split='test',
                  max_caption_len=32,
                  image_size=224,
-                 sample_size=500):
+                 sample_size=31783): # 31783 is the total number of samples in the Flickr30k dataset
         super().__init__()
         raw_dataset = load_dataset("nlphuji/flickr30k", split=split, streaming=True)
 
@@ -23,8 +29,8 @@ class Flickr30kCaptionDataset(Dataset):
         self.image_size = image_size
 
         self.tokenizer = get_tokenizer('ViT-B-32')
-        self.sos_id = self.tokenizer.encoder.get('<start_of_text>', 0)
-        self.eos_id = self.tokenizer.encoder.get('<end_of_text>', 0)
+        self.sos_id = self.tokenizer.encoder.get('<start_of_text>', 49406)
+        self.eos_id = self.tokenizer.encoder.get('<end_of_text>', 49407)
         self.pad_id = 0
 
         self.image_transform = transforms.Compose([
@@ -70,8 +76,16 @@ class Flickr30kCaptionDataset(Dataset):
         input_tensor = torch.tensor(sample['caption_input'], dtype=torch.long)
         label_tensor = torch.tensor(sample['caption_label'], dtype=torch.long)
 
+        # return image, caption_input, caption_label
         return img_tensor, input_tensor, label_tensor
     
+
+#
+#
+# MAIN
+#
+#
+
 if __name__ == "__main__":
     dataset = Flickr30kCaptionDataset(split='test')
     print(f"Loaded {len(dataset)} samples")

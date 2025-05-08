@@ -81,7 +81,7 @@ def evaluate():
       decoder_vocab_size=tokenizer.vocab_size,
       decoder_max_len=30
   ).to(DEVICE)
-  model.load_state_dict(torch.load("checkpoints/clip_caption_model.pth", map_location=DEVICE))
+  model.load_state_dict(torch.load("checkpoints/clip_caption_model_local.pth", map_location=DEVICE))
   model.eval()
 
   preds = {}

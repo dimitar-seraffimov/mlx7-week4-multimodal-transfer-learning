@@ -88,44 +88,5 @@ _Internal functionality:_
 
 ---
 
-### Order of file execution:
-
-+-----------------------------+ <br>
-| s01_dataset_flickr30k.py | ---> generates tokenized caption triples<br>
-+-----------------------------+<br>
-
-+-----------------------------+<br>
-| s02_clip_encoder_loader.py | ---> generates image embeddings from CLIP<br>
-+-----------------------------+<br>
-
-|-------- |<br>
-|-------- v<br>
-| +--------------------+<br>
-+-->| caption_training_data.parquet |<br>
-+--------------------+<br>
-
-+-----------------------------+<br>
-| s03_train.py | ---> trains decoder using:<br>
-| --------------| - image embeddings<br>
-| --------------| - input captions<br>
-| --------------| - caption labels<br>
-| --------------| uses `caption_model.py` + `decoder_transformer.py`<br>
-+-----------------------------+
-
-+-----------------------------+<br>
-| evaluate.py | ---> evaluates model performance:<br>
-| -------------| - loads trained model<br>
-| -------------| - calculates BLEU, METEOR, CIDEr<br>
-| -------------| - visualizes predictions<br>
-| -------------| uses `caption_model.py`<br>
-+-----------------------------+<br>
-
-+-----------------------------+<br>
-| s04_inference.py | ---> predicts caption for raw image<br>
-| -------------------| - uses frozen CLIP + trained decoder<br>
-| -------------------| - visualizes result<br>
-| -------------------| uses `caption_model.py`<br>
-+-----------------------------+<br>
-
 **Example Output:**
-![Sample output](progress_imgs/inference.png)
+![Sample output](predictions/final_output_1.jpg)

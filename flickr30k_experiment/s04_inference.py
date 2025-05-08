@@ -18,8 +18,8 @@ PAD_ID = 0
 
 # initialize tokenizer and special IDs
 tokenizer = get_tokenizer(CLIP_MODEL)
-sos_id    = tokenizer(["<start_of_text>"])[0][0]
-eos_id    = tokenizer(["<end_of_text>"])[0][0]
+sos_id = tokenizer.encoder.get('<start_of_text>', 0)
+eos_id = tokenizer.encoder.get('<end_of_text>', 0)
 
 #
 #

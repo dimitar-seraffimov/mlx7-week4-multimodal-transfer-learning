@@ -27,8 +27,8 @@ timestamp = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
 
 # initialize tokenizer and vocab size   
 tokenizer = get_tokenizer('ViT-B-32')
-sos_id    = tokenizer(["<start_of_text>"])[0][0]
-eos_id    = tokenizer(["<end_of_text>"])[0][0]
+sos_id = tokenizer.encoder.get('<start_of_text>', 0)
+eos_id = tokenizer.encoder.get('<end_of_text>', 0)
 pad_id    = 0  # matches model's ignore_index
 vocab_size= tokenizer.vocab_size
 
@@ -47,8 +47,8 @@ image_transform = transforms.Compose([
 class FlickrCaptionIter(IterableDataset):
     def __init__(self, split, max_len, sample_size):
         ds = load_dataset("nlphuji/flickr30k", split=split, streaming=True)
-        self.stream      = iter(ds.shuffle(buffer_size=1000))
-        self.max_len     = max_len
+        self.stream = iter(ds.shuffle(buffer_size=1000))
+        self.max_len = max_len
         self.sample_size = sample_size
 
     def __iter__(self):
@@ -57,14 +57,14 @@ class FlickrCaptionIter(IterableDataset):
             img_t = image_transform(row['image'].convert('RGB'))
             for caption in row['caption']:
 
-                token_ids = self.tokenizer([caption])[0].tolist()
-                token_ids = token_ids[:self.max_caption_len - 2]  # reserve space for SOS and EOS
+                token_ids = tokenizer([caption])[0].tolist()
+                token_ids = token_ids[:self.max_len - 2]  # reserve space for SOS and EOS
 
-                input_ids = [self.sos_id] + token_ids
-                label_ids = token_ids + [self.eos_id]
+                input_ids = [sos_id] + token_ids
+                label_ids = token_ids + [eos_id]
 
-                input_ids += [self.pad_id] * (self.max_caption_len - len(input_ids))
-                label_ids += [self.pad_id] * (self.max_caption_len - len(label_ids))
+                input_ids += [pad_id] * (self.max_len - len(input_ids))
+                label_ids += [pad_id] * (self.max_len - len(label_ids))
 
                 yield img_t, torch.tensor(input_ids), torch.tensor(label_ids)
                 count += 1

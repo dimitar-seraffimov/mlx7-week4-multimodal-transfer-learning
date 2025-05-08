@@ -40,9 +40,9 @@ class CaptioningDataset(Dataset):
 #
 #
 
-def greedy_decode(model, image_emb, tokenizer, max_len=30):
-  sos_id = tokenizer.encoder['<|startoftext|>']
-  eos_id = tokenizer.encoder['<|endoftext|>']
+def greedy_decode(model, image_emb, tokenizer, max_len=32):
+  sos_id = tokenizer.encoder['<start_of_text>']
+  eos_id = tokenizer.encoder['<end_of_text>']
 
   tokens = [sos_id]
   for _ in range(max_len):

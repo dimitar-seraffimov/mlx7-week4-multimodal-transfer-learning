@@ -8,7 +8,7 @@ from tqdm import tqdm
 class Flickr30kCaptionDataset(Dataset):
     def __init__(self,
                  split='test',
-                 max_caption_len=30,
+                 max_caption_len=32,
                  image_size=224,
                  sample_size=500):
         super().__init__()
@@ -40,10 +40,13 @@ class Flickr30kCaptionDataset(Dataset):
             img=row['image']
             for caption in row['caption']:
                 token_ids = self.tokenizer([caption])[0].tolist()
+                token_ids = token_ids[:self.max_caption_len - 2]  # reserve space for SOS and EOS
+
                 input_ids = [self.sos_id] + token_ids
                 label_ids = token_ids + [self.eos_id]
-                input_ids = input_ids[:self.max_caption_len] + [self.pad_id] * (self.max_caption_len - len(input_ids))
-                label_ids = label_ids[:self.max_caption_len] + [self.pad_id] * (self.max_caption_len - len(label_ids))
+
+                input_ids += [self.pad_id] * (self.max_caption_len - len(input_ids))
+                label_ids += [self.pad_id] * (self.max_caption_len - len(label_ids))
 
                 self.samples.append({
                     'image': img,

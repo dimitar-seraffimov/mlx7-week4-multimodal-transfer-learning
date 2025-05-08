@@ -55,15 +55,18 @@ class FlickrCaptionIter(IterableDataset):
         count = 0
         for row in self.stream:
             img_t = image_transform(row['image'].convert('RGB'))
-            for cap in row['caption']:
-                tokens = tokenizer([cap])[0].tolist()
-                # add SOS/EOS
-                inp = [sos_id] + tokens
-                lbl = tokens + [eos_id]
-                # truncate and pad
-                inp = inp[:self.max_len] + [pad_id] * (self.max_len - len(inp))
-                lbl = lbl[:self.max_len] + [pad_id] * (self.max_len - len(lbl))
-                yield img_t, torch.tensor(inp), torch.tensor(lbl)
+            for caption in row['caption']:
+
+                token_ids = self.tokenizer([caption])[0].tolist()
+                token_ids = token_ids[:self.max_caption_len - 2]  # reserve space for SOS and EOS
+
+                input_ids = [self.sos_id] + token_ids
+                label_ids = token_ids + [self.eos_id]
+
+                input_ids += [self.pad_id] * (self.max_caption_len - len(input_ids))
+                label_ids += [self.pad_id] * (self.max_caption_len - len(label_ids))
+
+                yield img_t, torch.tensor(input_ids), torch.tensor(label_ids)
                 count += 1
                 if count >= self.sample_size:
                     return
@@ -117,6 +120,7 @@ wandb.watch(model, log='all')
 for epoch in range(1, EPOCHS + 1):
     model.train()
     total_loss = 0.0
+    steps = 0
     progress_bar = tqdm(train_loader, total=SAMPLE_SIZE//BATCH_SIZE, desc=f"Epoch {epoch}/{EPOCHS}", leave=False)
     for images, caption_in, caption_label in progress_bar:
         images = images.to(DEVICE, non_blocking=True)           # [B,3,H,W]
@@ -135,11 +139,12 @@ for epoch in range(1, EPOCHS + 1):
         optimizer.step()
 
         total_loss += loss.item()
+        steps += 1
         wandb.log({'loss': loss.item(), 'epoch': epoch})
         progress_bar.set_postfix({'loss':f"{loss.item():.4f}"})
 
-    avg_loss = total_loss / (SAMPLE_SIZE//BATCH_SIZE)
-    print(f"Epoch {epoch} — Avg Loss: {avg_loss:.4f}")
+    avg_loss = total_loss / steps
+    print(f"Epoch {epoch} — Average Loss: {avg_loss:.4f}")
     wandb.log({'epoch': epoch, 'train_loss': avg_loss})
 
 # save model checkpoint

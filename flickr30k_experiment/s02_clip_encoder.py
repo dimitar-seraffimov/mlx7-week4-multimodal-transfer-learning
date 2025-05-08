@@ -13,7 +13,7 @@ from clip_utils import load_clip_model, DEVICE
 MODEL_NAME = 'ViT-B-32'
 PRETRAINED = 'openai'
 SPLIT = 'test'
-SAMPLE_SIZE = 5000
+SAMPLE_SIZE = 500
 BATCH_SIZE = 32
 OUTPUT_PATH = 'clip_image_embeddings.parquet'
 

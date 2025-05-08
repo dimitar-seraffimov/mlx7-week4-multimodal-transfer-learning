@@ -13,13 +13,13 @@ MODEL_CHECKPOINT = 'checkpoints/clip_caption_model_local.pth'
 CLIP_MODEL = 'ViT-B-32'
 CLIP_PRETRAINED = 'openai'
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-MAX_LEN = 30
+MAX_LEN = 32
 PAD_ID = 0
 
 # initialize tokenizer and special IDs
 tokenizer = get_tokenizer(CLIP_MODEL)
-sos_id    = tokenizer(["<|startoftext|>"])[0][0]
-eos_id    = tokenizer(["<|endoftext|>"])[0][0]
+sos_id    = tokenizer(["<start_of_text>"])[0][0]
+eos_id    = tokenizer(["<end_of_text>"])[0][0]
 
 #
 #

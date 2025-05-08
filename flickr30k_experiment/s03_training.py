@@ -18,17 +18,17 @@ import datetime
 
 BATCH_SIZE = 32
 EPOCHS = 5
-MAX_LEN = 30
+MAX_LEN = 32
 LEARNING_RATE = 3e-4
 SPLIT = 'test'
-SAMPLE_SIZE = 5000
+SAMPLE_SIZE = 500
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 timestamp = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
 
 # initialize tokenizer and vocab size   
 tokenizer = get_tokenizer('ViT-B-32')
-sos_id    = tokenizer(["<|startoftext|>"])[0][0]
-eos_id    = tokenizer(["<|endoftext|>"])[0][0]
+sos_id    = tokenizer(["<start_of_text>"])[0][0]
+eos_id    = tokenizer(["<end_of_text>"])[0][0]
 pad_id    = 0  # matches model's ignore_index
 vocab_size= tokenizer.vocab_size
 

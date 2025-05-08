@@ -10,7 +10,7 @@ class Flickr30kCaptionDataset(Dataset):
                  split='test',
                  max_caption_len=30,
                  image_size=224,
-                 sample_size=5000):
+                 sample_size=500):
         super().__init__()
         raw_dataset = load_dataset("nlphuji/flickr30k", split=split, streaming=True)
 
@@ -23,8 +23,8 @@ class Flickr30kCaptionDataset(Dataset):
         self.image_size = image_size
 
         self.tokenizer = get_tokenizer('ViT-B-32')
-        self.sos_id = self.tokenizer.encoder.get('<|startoftext|>', 0)
-        self.eos_id = self.tokenizer.encoder.get('<|endoftext|>', 0)
+        self.sos_id = self.tokenizer.encoder.get('<start_of_text>', 0)
+        self.eos_id = self.tokenizer.encoder.get('<end_of_text>', 0)
         self.pad_id = 0
 
         self.image_transform = transforms.Compose([

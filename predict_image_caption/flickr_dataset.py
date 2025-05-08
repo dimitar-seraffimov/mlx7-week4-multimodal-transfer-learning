@@ -32,13 +32,14 @@ SAMPLE_SIZE = 20000
 #
 #
 
-def tokenize_caption(caption, add_sos=True, add_eos=True):
+def tokenize_caption(caption):
+  caption = caption.rstrip('.')
   token_ids = tokenizer([caption])[0].tolist()
   token_ids = [t for t in token_ids if t not in {sos_id, eos_id}]
-  token_ids = token_ids[:MAX_LEN - 2]
+  token_ids = token_ids[:MAX_LEN - 2] # make room for SOS and EOS
 
-  input_ids = [sos_id] + token_ids if add_sos else token_ids
-  label_ids = token_ids + [eos_id] if add_eos else token_ids
+  input_ids = [sos_id] + token_ids 
+  label_ids = token_ids + [eos_id]
 
   input_ids += [pad_id] * (MAX_LEN - len(input_ids))
   label_ids += [pad_id] * (MAX_LEN - len(label_ids))
@@ -66,8 +67,8 @@ class FlickrDebugDataset(Dataset):
         self.samples = []
         count = 0
         
-        progress_bar = tqdm(raw_dataset, total=sample_size)
-        for row in progress_bar:
+        progress_bar = tqdm(total=sample_size, desc="Loading Debug Samples")
+        for row in raw_dataset:
             img = row['image']
             for caption in row['caption']:
                 input_ids, label_ids = tokenize_caption(caption)
@@ -77,10 +78,12 @@ class FlickrDebugDataset(Dataset):
                 'caption_label': label_ids
                 })
                 count += 1
+                progress_bar.update(1)
                 if count >= sample_size:
                     break
-                if count >= sample_size:
-                    break
+            if count >= sample_size:
+                break
+        progress_bar.close()
         
         def __len__(self):
             return len(self.samples)
@@ -120,19 +123,21 @@ class FlickrStreamDataset(IterableDataset):
     def __iter__(self):
         dataset = load_dataset("nlphuji/flickr30k", split=self.split, streaming=True)
         stream = iter(dataset.shuffle(buffer_size=1000))
-        progress_bar = tqdm(stream, total=self.sample_size)
+        progress_bar = tqdm(total=self.sample_size, desc="Streaming Training Data")
 
         count = 0
-        for row in progress_bar:
+        for row in stream:
             # return image tensor
             img_tensor = image_transform(row['image'].convert('RGB'))
             # return caption input and label ids
             for caption in row['caption']:
+                if count >= self.sample_size:
+                    progress_bar.close()
+                    return
                 input_ids, label_ids = tokenize_caption(caption)
                 yield img_tensor, torch.tensor(input_ids), torch.tensor(label_ids)
                 count += 1
-                if self.sample_size and count >= self.sample_size:
-                    return
+                progress_bar.update(1)
 
 #
 #
@@ -153,9 +158,9 @@ class FlickrImageOnly(IterableDataset):
     def __iter__(self):
         dataset = load_dataset("nlphuji/flickr30k", split=self.split, streaming=True)
         stream = iter(dataset.shuffle(buffer_size=1000))
-        progress_bar = tqdm(stream, total=self.sample_size)
+        progress_bar = tqdm(stream, total=self.sample_size, desc="Streaming Image Embeddings")
 
         for i, row in enumerate(progress_bar):
-            if self.sample_size and i >= self.sample_size:
+            if i >= self.sample_size:
                 return
             yield image_transform(row['image'].convert('RGB'))

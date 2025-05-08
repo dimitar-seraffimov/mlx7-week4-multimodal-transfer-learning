@@ -13,9 +13,9 @@ from flickr_dataset import FlickrImageOnly
 MODEL_NAME = 'ViT-B-32'
 PRETRAINED = 'openai'
 SPLIT = 'test'
-# loading all 31783 images from the Flickr30k dataset
-SAMPLE_SIZE = 31783
-BATCH_SIZE = 32
+# got best results with 20k samples
+SAMPLE_SIZE = 20000
+BATCH_SIZE = 64
 OUTPUT_PATH = 'clip_image_embeddings.parquet'
 
 #
@@ -27,11 +27,11 @@ OUTPUT_PATH = 'clip_image_embeddings.parquet'
 
 def main():
   # load model + transform
-  model = load_clip_model(MODEL_NAME, PRETRAINED, quick_gelu=True)
+  model, preprocess = load_clip_model(MODEL_NAME, PRETRAINED, quick_gelu=True)
   model.to(DEVICE).eval()
 
   # dataset from flickr_dataset.py
-  dataset = FlickrImageOnly(split="train", sample_size=31783)
+  dataset = FlickrImageOnly(split="test", sample_size=SAMPLE_SIZE)
   loader = DataLoader(
     dataset,
     batch_size=BATCH_SIZE,

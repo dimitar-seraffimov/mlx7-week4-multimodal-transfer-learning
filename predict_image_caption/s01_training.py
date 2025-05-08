@@ -7,7 +7,7 @@ from caption_model import ImageCaptioningModel
 from open_clip import get_tokenizer
 from clip_utils import DEVICE
 import datetime
-from flickr_dataset import FlickrStreamingDataset
+from flickr_dataset import FlickrStreamDataset
 
 #
 #
@@ -15,12 +15,13 @@ from flickr_dataset import FlickrStreamingDataset
 #
 #
 
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 EPOCHS = 8
 MAX_LEN = 32
 LEARNING_RATE = 3e-4
 SPLIT = 'test'
-SAMPLE_SIZE = 31783
+# got best results with 20k samples and 8 epochs
+SAMPLE_SIZE = 20000
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 timestamp = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
 
@@ -37,7 +38,7 @@ vocab_size= tokenizer.vocab_size
 # 
 #
 
-train_ds = FlickrStreamingDataset(SPLIT, SAMPLE_SIZE)
+train_ds = FlickrStreamDataset(SPLIT, SAMPLE_SIZE)
 train_loader = DataLoader(
     train_ds,
     batch_size=BATCH_SIZE,

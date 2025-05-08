@@ -22,12 +22,13 @@ _Internal functionality:_
 
 ---
 
-**`s01_image_embeddings.py`**
+**`local_image_embeddings.py`**
 _Internal functionality:_
 
 - load pretrained CLIP model from OpenCLIP (vision + text encoder)
 - encode images using `CLIPVisionTransformer`
-- store visual embeddings for reuse
+- store visual embeddings locally for reuse
+  - need to change the s01_training script to use them! currently computing embeddings on the go
 - optional: encode captions using `CLIPTextTransformer` for semantic comparison/analysis
 
 ---
@@ -59,7 +60,7 @@ _Internal functionality:_
 
 ---
 
-**`s02_training.py`**
+**`s01_training.py`**
 _Internal functionality:_
 
 - load preprocessed dataset triples
@@ -80,7 +81,7 @@ _Internal functionality:_
 
 ---
 
-**`s03_inference.py`**
+**`s02_inference.py`**
 _Internal functionality:_
 
 - load trained model

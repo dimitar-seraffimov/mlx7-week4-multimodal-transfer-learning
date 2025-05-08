@@ -62,13 +62,19 @@ Here are a few sample outputs generated using the trained model (I am getting th
 
 ## Project Files
 
-### `s01_dataset_flickr30k.py`
+### `flickr_dataset.py`
 
-- loads the Flickr30k dataset from Hugging Face
-- tokenizes captions using SentencePiece
-- generates and caches `(image, caption_input, caption_label)` triples
+- global setup for loading the Flickr30k dataset from Hugging Face
+- class FlickrDebugDataset - fully loads sample_size examples into memory
+  - used for testing and understanding the data
+- class FlickrStreamDataset - streams image-caption pairs without loading all data in memory
+  - used during model training
+  - applies image transforms and tokenization on-the-fly
+- class FlickrImageOnly
+  - used to generate CLIP image embeddings - in s01_image_embeddings.py to compute embeddings
+  - gets preprocessed image tensors only (no captions)
 
-### `s02_clip_encoder.py`
+### `s01_image_embeddings.py`
 
 - uses OpenCLIP to encode images via a frozen vision transformer
 - stores visual embeddings for downstream training or analysis
@@ -85,7 +91,7 @@ Here are a few sample outputs generated using the trained model (I am getting th
 - combines the CLIP encoder and custom Transformer decoder
 - returns logits for next-token prediction over the vocabulary
 
-### `s03_training.py`
+### `s02_training.py`
 
 - loads training triples and trains the model
 - logs progress with `wandb`
@@ -97,7 +103,7 @@ Here are a few sample outputs generated using the trained model (I am getting th
 - loads the checkpoint and generates captions for test embeddings
 - visualizes sample predictions
 
-### `s04_inference.py`
+### `s03_inference.py`
 
 - loads the model checkpoint and takes a raw image as input
 - encodes image and runs greedy decoding

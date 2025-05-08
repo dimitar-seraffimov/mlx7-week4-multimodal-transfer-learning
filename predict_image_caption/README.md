@@ -7,19 +7,22 @@ Generate natural language descriptions for images from the Flickr30k dataset usi
 
 ### Files (in order of creation):
 
-**`s01_dataset_flickr30k.py`**
+**`flickr_dataset.py`**
 _Internal functionality:_
 
-- load Flickr30k dataset from HuggingFace -> no download, the dataset is huge and I don't need to create embeddings on it
-- use the pre-trained SentencePiece model
-- extract images and corresponding 5 captions
-- tokenize captions using SentencePiece
-- generate `(image, caption_input, caption_label)` triples
-- save preprocessed data as 'flickr30k_cache.pt' for efficient training at s03_training.py
+- global setup for loading the Flickr30k dataset from Hugging Face
+- class FlickrDebugDataset - fully loads sample_size examples into memory
+  - used for testing and understanding the data
+- class FlickrStreamDataset - streams image-caption pairs without loading all data in memory
+  - used during model training
+  - applies image transforms and tokenization on-the-fly
+- class FlickrImageOnly
+  - used to generate CLIP image embeddings - in s01_image_embeddings.py to compute embeddings
+  - gets preprocessed image tensors only (no captions)
 
 ---
 
-**`s02_clip_encoder.py`**
+**`s01_image_embeddings.py`**
 _Internal functionality:_
 
 - load pretrained CLIP model from OpenCLIP (vision + text encoder)
@@ -56,7 +59,7 @@ _Internal functionality:_
 
 ---
 
-**`s03_training.py`**
+**`s02_training.py`**
 _Internal functionality:_
 
 - load preprocessed dataset triples
@@ -77,7 +80,7 @@ _Internal functionality:_
 
 ---
 
-**`s04_inference.py`**
+**`s03_inference.py`**
 _Internal functionality:_
 
 - load trained model

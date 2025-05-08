@@ -1,14 +1,13 @@
 import os
 import torch
-from torch.utils.data import IterableDataset, DataLoader
+from torch.utils.data import DataLoader
 import wandb
 from tqdm import tqdm
 from caption_model import ImageCaptioningModel
 from open_clip import get_tokenizer
 from clip_utils import DEVICE
-from datasets import load_dataset
-from torchvision import transforms
 import datetime
+from flickr_dataset import FlickrStreamingDataset
 
 #
 #
@@ -32,56 +31,13 @@ eos_id = tokenizer.encoder.get('<end_of_text>', 49407)
 pad_id = 0 
 vocab_size= tokenizer.vocab_size
 
-image_transform = transforms.Compose([
-    transforms.Resize((224,224)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.5],[0.5]),
-])
-
-#
-#
-# STREAMED DATASET
-#
-#
-
-class FlickrCaptionIter(IterableDataset):
-    def __init__(self, split, max_len, sample_size):
-        self.split = split
-        self.max_len = max_len
-        self.sample_size = sample_size
-
-    def __iter__(self):
-        # reload the stream each iteration
-        ds = load_dataset("nlphuji/flickr30k", split=self.split, streaming=True)
-        stream = iter(ds.shuffle(buffer_size=1000))
-
-        count = 0
-        for row in stream:
-            img_t = image_transform(row['image'].convert('RGB'))
-            for caption in row['caption']:
-                caption = caption.rstrip('.')
-                token_ids = tokenizer([caption])[0].tolist()
-                token_ids = [t for t in token_ids if t != sos_id]  # KEEP eos_id as it is already added in the dataset
-                token_ids = token_ids[:self.max_len - 2]  # room for sos + eos
-
-                input_ids = [sos_id] + token_ids
-                label_ids = token_ids # + [eos_id] -> # not adding manually as it will duplicate the eos token
-                
-                input_ids += [pad_id] * (self.max_len - len(input_ids))
-                label_ids += [pad_id] * (self.max_len - len(label_ids))
-
-                yield img_t, torch.tensor(input_ids), torch.tensor(label_ids)
-                count += 1
-                if count >= self.sample_size:
-                    return
-
 #
 #
 # DATA
 # 
 #
 
-train_ds = FlickrCaptionIter(SPLIT, MAX_LEN, SAMPLE_SIZE)
+train_ds = FlickrStreamingDataset(SPLIT, SAMPLE_SIZE)
 train_loader = DataLoader(
     train_ds,
     batch_size=BATCH_SIZE,

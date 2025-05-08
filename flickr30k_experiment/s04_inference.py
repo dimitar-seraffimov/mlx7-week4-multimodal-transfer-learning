@@ -56,14 +56,7 @@ def greedy_decode(model, image_embedding, max_len=MAX_LEN):
       break
     tokens.append(next_token)
 
-  # drop SOS and strip trailing PAD
-  output = tokens[1:]
-  real = []
-  for t in output:
-    if t == PAD_ID:
-      break
-    real.append(t)
-  return real
+  return tokens[1:] # drop <sos>
 
 #
 #

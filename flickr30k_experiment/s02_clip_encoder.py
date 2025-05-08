@@ -50,7 +50,7 @@ def main():
   model.to(DEVICE).eval()
 
   # dataset + dataloader
-  ds     = FlickrIterDataset(SPLIT, preprocess, SAMPLE_SIZE)
+  ds = FlickrIterDataset(SPLIT, preprocess, SAMPLE_SIZE)
   loader = DataLoader(
     ds,
     batch_size=BATCH_SIZE,
@@ -65,10 +65,10 @@ def main():
   for batch in tqdm(loader, total=SAMPLE_SIZE // BATCH_SIZE):
     imgs = batch.to(DEVICE, non_blocking=True)
     with torch.no_grad():
-        embs = model.encode_image(imgs).cpu().numpy()
+      embs = model.encode_image(imgs).cpu().numpy()
     records.extend({'embedding': e} for e in embs)
     if len(records) >= SAMPLE_SIZE:
-        break
+      break
 
   # save
   pd.DataFrame(records).to_parquet(OUTPUT_PATH, index=False)

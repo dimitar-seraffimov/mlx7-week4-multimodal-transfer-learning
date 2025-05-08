@@ -29,7 +29,7 @@ timestamp = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
 tokenizer = get_tokenizer('ViT-B-32')
 sos_id = tokenizer.encoder.get('<start_of_text>', 0)
 eos_id = tokenizer.encoder.get('<end_of_text>', 0)
-pad_id    = 0  # matches model's ignore_index
+pad_id = 0  # matches model's ignore_index
 vocab_size= tokenizer.vocab_size
 
 image_transform = transforms.Compose([
@@ -58,10 +58,10 @@ class FlickrCaptionIter(IterableDataset):
             for caption in row['caption']:
 
                 token_ids = tokenizer([caption])[0].tolist()
-                token_ids = token_ids[:self.max_len - 2]  # reserve space for SOS and EOS
+                tokens = token_ids[:self.max_len - 2]  # reserve space for SOS and EOS
 
-                input_ids = [sos_id] + token_ids
-                label_ids = token_ids + [eos_id]
+                input_ids = [sos_id] + tokens
+                label_ids = tokens + [eos_id]
 
                 input_ids += [pad_id] * (self.max_len - len(input_ids))
                 label_ids += [pad_id] * (self.max_len - len(label_ids))
@@ -116,6 +116,12 @@ wandb.watch(model, log='all')
 # TRAINING LOOP
 #
 #
+for img, inp, lbl in train_loader:
+    print("Sample input IDs:", inp[0][:10].tolist())
+    print("Sample label IDs:", lbl[0][:10].tolist())
+    print("Decoded input:", tokenizer.decode(inp[0].tolist()))
+    print("Decoded label:", tokenizer.decode(lbl[0].tolist()))
+    break
 
 for epoch in range(1, EPOCHS + 1):
     model.train()

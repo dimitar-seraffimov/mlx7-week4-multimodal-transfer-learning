@@ -74,10 +74,13 @@ Here are a few sample outputs generated using the trained model (I am getting th
   - used to generate CLIP image embeddings - in s01_image_embeddings.py to compute embeddings
   - gets preprocessed image tensors only (no captions)
 
-### `s01_image_embeddings.py`
+### `local_image_embeddings.py`
 
-- uses OpenCLIP to encode images via a frozen vision transformer
-- stores visual embeddings for downstream training or analysis
+- load pretrained CLIP model from OpenCLIP (vision + text encoder)
+- encode images using `CLIPVisionTransformer`
+- store visual embeddings locally for reuse
+  - need to change the s01_training script to use them! currently computing embeddings on the go
+- optional: encode captions using `CLIPTextTransformer` for semantic comparison/analysis
 
 ### `decoder_transformer.py`
 
@@ -91,7 +94,7 @@ Here are a few sample outputs generated using the trained model (I am getting th
 - combines the CLIP encoder and custom Transformer decoder
 - returns logits for next-token prediction over the vocabulary
 
-### `s02_training.py`
+### `s01_training.py`
 
 - loads training triples and trains the model
 - logs progress with `wandb`
@@ -103,7 +106,7 @@ Here are a few sample outputs generated using the trained model (I am getting th
 - loads the checkpoint and generates captions for test embeddings
 - visualizes sample predictions
 
-### `s03_inference.py`
+### `s02_inference.py`
 
 - loads the model checkpoint and takes a raw image as input
 - encodes image and runs greedy decoding

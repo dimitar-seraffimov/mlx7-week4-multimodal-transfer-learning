@@ -15,13 +15,13 @@ from flickr_dataset import FlickrStreamDataset
 #
 #
 
-BATCH_SIZE = 64
-EPOCHS = 8
+BATCH_SIZE = 32
+EPOCHS = 12
 MAX_LEN = 32
 LEARNING_RATE = 3e-4
 SPLIT = 'test'
-# got best results with 20k samples and 8 epochs
-SAMPLE_SIZE = 20000
+# got best results with 20k samples and 8 epochs - trying with full dataset and more epochs
+SAMPLE_SIZE = 31783
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 timestamp = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
 

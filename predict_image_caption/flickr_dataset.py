@@ -123,7 +123,6 @@ class FlickrStreamDataset(IterableDataset):
     def __iter__(self):
         dataset = load_dataset("nlphuji/flickr30k", split=self.split, streaming=True)
         stream = iter(dataset.shuffle(buffer_size=1000))
-        progress_bar = tqdm(total=self.sample_size, desc="Streaming Training Data")
 
         count = 0
         for row in stream:
@@ -131,13 +130,12 @@ class FlickrStreamDataset(IterableDataset):
             img_tensor = image_transform(row['image'].convert('RGB'))
             # return caption input and label ids
             for caption in row['caption']:
+                # check if the sample size limit is reached
                 if count >= self.sample_size:
-                    progress_bar.close()
                     return
                 input_ids, label_ids = tokenize_caption(caption)
                 yield img_tensor, torch.tensor(input_ids), torch.tensor(label_ids)
                 count += 1
-                progress_bar.update(1)
 
 #
 #

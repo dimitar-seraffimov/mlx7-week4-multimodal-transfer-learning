@@ -24,6 +24,7 @@ pad_id = 0
 vocab_size= tokenizer.vocab_size
 
 MAX_LEN = 32
+# got best results with 20k samples and 8 epochs
 SAMPLE_SIZE = 20000
 
 #
@@ -122,8 +123,10 @@ class FlickrStreamDataset(IterableDataset):
 
     def __iter__(self):
         dataset = load_dataset("nlphuji/flickr30k", split=self.split, streaming=True)
-        stream = iter(dataset.shuffle(buffer_size=1000))
-
+        # streaming buffer size for each epoch loading the dataset
+        buffer_size = 1000
+        stream = iter(dataset.shuffle(buffer_size=buffer_size))
+        # count samples
         count = 0
         for row in stream:
             # return image tensor

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-ARTIFACT_NAME = 'mlx7-dimitar-projects/mlx7-week4-multimodal/'
+ARTIFACT_NAME = 'mlx7-dimitar-projects/mlx7-week4-multimodal/week4f_lickr30k_2025_05_08__12_46_54:latest'
 CHECKPOINT_FILENAME = 'clip_caption_model_local.pth'
 LOCAL_CHECKPOINT_DIR = 'downloaded_artifacts'
 

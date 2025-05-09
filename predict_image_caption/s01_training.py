@@ -15,12 +15,12 @@ from flickr_dataset import FlickrStreamDataset
 #
 #
 
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 EPOCHS = 8
 MAX_LEN = 32
 LEARNING_RATE = 3e-4
 SPLIT = 'test'
-# got best results with 20k samples and 8 epochs
+# got best results with 20k samples and 8 epochs - trying with the full dataset and more epochs results in overfitting??? had no time to fix this as I have a solid model already
 SAMPLE_SIZE = 20000
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 timestamp = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
@@ -55,7 +55,7 @@ train_loader = DataLoader(
 #
 
 model = ImageCaptioningModel(decoder_vocab_size=vocab_size, decoder_max_len=MAX_LEN).to(DEVICE)
-print(f"Model initialized on {DEVICE} with vocab size {vocab_size} and max len {MAX_LEN}")
+print(f"Model initialized on {DEVICE} with vocab size {vocab_size} and max len {MAX_LEN} with {SAMPLE_SIZE} samples.")
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 criterion = torch.nn.CrossEntropyLoss(ignore_index=pad_id)
 
@@ -77,15 +77,10 @@ wandb.watch(model, log='all')
 # TRAINING LOOP
 #
 #
-for img, inp, lbl in train_loader:
-    print("Sample input IDs:", inp[0][:10].tolist())
-    print("Sample label IDs:", lbl[0][:10].tolist())
-    print("Decoded input:", tokenizer.decode([t for t in inp[0].tolist() if t != pad_id]).rstrip('.'))
-    print("Decoded label:", tokenizer.decode([t for t in lbl[0].tolist() if t != pad_id]).rstrip('.'))
-    break
 
 for epoch in range(1, EPOCHS + 1):
     model.train()
+    # training loop
     total_loss = 0.0
     steps = 0
     progress_bar = tqdm(train_loader, total=SAMPLE_SIZE//BATCH_SIZE, desc=f"Epoch {epoch}/{EPOCHS}", leave=False)

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from decoder_transformer import TransformerDecoder
-from clip_utils import load_clip_model
+from .decoder_transformer import TransformerDecoder
+from .clip_utils import load_clip_model
 
 
 class ImageCaptioningModel(nn.Module):

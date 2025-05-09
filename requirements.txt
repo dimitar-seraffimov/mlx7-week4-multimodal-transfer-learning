@@ -6,13 +6,13 @@ Pillow==11.2.1
 pycocoevalcap==1.2
 sentencepiece==0.2.0
 open_clip_torch
-# ML libraries
 torch
 torchvision
 torchaudio
-# HuggingFace libraries
 datasets
 huggingface-hub
-# training utilities
 tqdm
 wandb
+streamlit
+psycopg2-binary
+dotenv

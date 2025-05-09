@@ -40,9 +40,9 @@ class CaptioningDataset(Dataset):
 #
 #
 
-def greedy_decode(model, image_emb, tokenizer, max_len=30):
-  sos_id = tokenizer.encoder['<|startoftext|>']
-  eos_id = tokenizer.encoder['<|endoftext|>']
+def greedy_decode(model, image_emb, tokenizer, max_len=32):
+  sos_id = tokenizer.encoder['<start_of_text>']
+  eos_id = tokenizer.encoder['<end_of_text>']
 
   tokens = [sos_id]
   for _ in range(max_len):
@@ -81,7 +81,7 @@ def evaluate():
       decoder_vocab_size=tokenizer.vocab_size,
       decoder_max_len=30
   ).to(DEVICE)
-  model.load_state_dict(torch.load("checkpoints/clip_caption_model.pth", map_location=DEVICE))
+  model.load_state_dict(torch.load("checkpoints/clip_caption_model_local.pth", map_location=DEVICE))
   model.eval()
 
   preds = {}

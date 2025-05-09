@@ -1,14 +1,13 @@
 import os
 import torch
-from torch.utils.data import IterableDataset, DataLoader
+from torch.utils.data import DataLoader
 import wandb
 from tqdm import tqdm
 from caption_model import ImageCaptioningModel
 from open_clip import get_tokenizer
 from clip_utils import DEVICE
-from datasets import load_dataset
-from torchvision import transforms
 import datetime
+from flickr_dataset import FlickrStreamDataset
 
 #
 #
@@ -16,57 +15,22 @@ import datetime
 #
 #
 
-BATCH_SIZE = 32
-EPOCHS = 5
-MAX_LEN = 30
+BATCH_SIZE = 64
+EPOCHS = 8
+MAX_LEN = 32
 LEARNING_RATE = 3e-4
 SPLIT = 'test'
-SAMPLE_SIZE = 5000
+# got best results with 20k samples and 8 epochs
+SAMPLE_SIZE = 20000
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 timestamp = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
 
 # initialize tokenizer and vocab size   
 tokenizer = get_tokenizer('ViT-B-32')
-sos_id    = tokenizer(["<|startoftext|>"])[0][0]
-eos_id    = tokenizer(["<|endoftext|>"])[0][0]
-pad_id    = 0  # matches model's ignore_index
+sos_id = tokenizer.encoder.get('<start_of_text>', 49406)
+eos_id = tokenizer.encoder.get('<end_of_text>', 49407)
+pad_id = 0 
 vocab_size= tokenizer.vocab_size
-
-image_transform = transforms.Compose([
-    transforms.Resize((224,224)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.5],[0.5]),
-])
-
-#
-#
-# STREAMED DATASET
-#
-#
-
-class FlickrCaptionIter(IterableDataset):
-    def __init__(self, split, max_len, sample_size):
-        ds = load_dataset("nlphuji/flickr30k", split=split, streaming=True)
-        self.stream      = iter(ds.shuffle(buffer_size=1000))
-        self.max_len     = max_len
-        self.sample_size = sample_size
-
-    def __iter__(self):
-        count = 0
-        for row in self.stream:
-            img_t = image_transform(row['image'].convert('RGB'))
-            for cap in row['caption']:
-                tokens = tokenizer([cap])[0].tolist()
-                # add SOS/EOS
-                inp = [sos_id] + tokens
-                lbl = tokens + [eos_id]
-                # truncate and pad
-                inp = inp[:self.max_len] + [pad_id] * (self.max_len - len(inp))
-                lbl = lbl[:self.max_len] + [pad_id] * (self.max_len - len(lbl))
-                yield img_t, torch.tensor(inp), torch.tensor(lbl)
-                count += 1
-                if count >= self.sample_size:
-                    return
 
 #
 #
@@ -74,7 +38,7 @@ class FlickrCaptionIter(IterableDataset):
 # 
 #
 
-train_ds = FlickrCaptionIter(SPLIT, MAX_LEN, SAMPLE_SIZE)
+train_ds = FlickrStreamDataset(SPLIT, SAMPLE_SIZE)
 train_loader = DataLoader(
     train_ds,
     batch_size=BATCH_SIZE,
@@ -113,20 +77,26 @@ wandb.watch(model, log='all')
 # TRAINING LOOP
 #
 #
+for img, inp, lbl in train_loader:
+    print("Sample input IDs:", inp[0][:10].tolist())
+    print("Sample label IDs:", lbl[0][:10].tolist())
+    print("Decoded input:", tokenizer.decode([t for t in inp[0].tolist() if t != pad_id]).rstrip('.'))
+    print("Decoded label:", tokenizer.decode([t for t in lbl[0].tolist() if t != pad_id]).rstrip('.'))
+    break
 
 for epoch in range(1, EPOCHS + 1):
     model.train()
     total_loss = 0.0
+    steps = 0
     progress_bar = tqdm(train_loader, total=SAMPLE_SIZE//BATCH_SIZE, desc=f"Epoch {epoch}/{EPOCHS}", leave=False)
     for images, caption_in, caption_label in progress_bar:
-        images = images.to(DEVICE, non_blocking=True)           # [B,3,H,W]
-        caption_in = caption_in.to(DEVICE)           # [B,T]
-        caption_label = caption_label.to(DEVICE)         # [B,T]
+        images = images.to(DEVICE, non_blocking=True)
+        caption_in = caption_in.to(DEVICE)
+        caption_label = caption_label.to(DEVICE)
 
         optimizer.zero_grad()
-        logits = model(images=images, captions=caption_in)  # [B,T,V]
+        logits = model(images=images, captions=caption_in)
 
-        # reshape for loss: merge batch and time
         loss = criterion(
             logits.view(-1, vocab_size),
             caption_label.view(-1)
@@ -135,11 +105,12 @@ for epoch in range(1, EPOCHS + 1):
         optimizer.step()
 
         total_loss += loss.item()
+        steps += 1
         wandb.log({'loss': loss.item(), 'epoch': epoch})
-        progress_bar.set_postfix({'loss':f"{loss.item():.4f}"})
+        progress_bar.set_postfix({'loss': f"{loss.item():.4f}"})
 
-    avg_loss = total_loss / (SAMPLE_SIZE//BATCH_SIZE)
-    print(f"Epoch {epoch} — Avg Loss: {avg_loss:.4f}")
+    avg_loss = total_loss / steps
+    print(f"Epoch {epoch} — Average Loss: {avg_loss:.4f}")
     wandb.log({'epoch': epoch, 'train_loss': avg_loss})
 
 # save model checkpoint

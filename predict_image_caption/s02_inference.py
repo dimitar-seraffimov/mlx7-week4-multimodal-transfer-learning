@@ -3,23 +3,44 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from caption_model import ImageCaptioningModel
 from open_clip import create_model_and_transforms, get_tokenizer
+import wandb
+import os
 #
 #
 # SETUP
 #
 #
 
-MODEL_CHECKPOINT = 'checkpoints/clip_caption_model_local.pth'
+# model artifact info
+ARTIFACT_NAME = 'mlx7-dimitar-projects/mlx7-week4-multimodal/week4f_lickr30k_2025_05_08__12_46_54:latest'
+CHECKPOINT_FILENAME = 'clip_caption_model_local.pth'
+LOCAL_CHECKPOINT_DIR = './downloaded_artifacts'
+MODEL_CHECKPOINT = os.path.join(LOCAL_CHECKPOINT_DIR, CHECKPOINT_FILENAME)
+
+# download my best trained model from the saved wandb artifact model
+# this model is trained on 20k samples from the Flickr30k dataset, 8 epochs
+
+if not os.path.exists(MODEL_CHECKPOINT):
+    print("Model checkpoint not found locally. Downloading from Weights & Biases...")
+    wandb.login()
+    run = wandb.init(project="mlx7-week4-multimodal", job_type="inference", reinit=True)
+    artifact = run.use_artifact(ARTIFACT_NAME, type='model')
+    artifact_dir = artifact.download(root=LOCAL_CHECKPOINT_DIR)
+    MODEL_CHECKPOINT = os.path.join(artifact_dir, CHECKPOINT_FILENAME)
+else:
+    print("Model checkpoint found locally. Using cached version.")
+
 CLIP_MODEL = 'ViT-B-32'
 CLIP_PRETRAINED = 'openai'
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-MAX_LEN = 30
+MAX_LEN = 32
 PAD_ID = 0
+
 
 # initialize tokenizer and special IDs
 tokenizer = get_tokenizer(CLIP_MODEL)
-sos_id    = tokenizer(["<|startoftext|>"])[0][0]
-eos_id    = tokenizer(["<|endoftext|>"])[0][0]
+sos_id = tokenizer.encoder.get('<start_of_text>', 49406)
+eos_id = tokenizer.encoder.get('<end_of_text>', 49407)
 
 #
 #
@@ -56,14 +77,7 @@ def greedy_decode(model, image_embedding, max_len=MAX_LEN):
       break
     tokens.append(next_token)
 
-  # drop SOS and strip trailing PAD
-  output = tokens[1:]
-  real = []
-  for t in output:
-    if t == PAD_ID:
-      break
-    real.append(t)
-  return real
+  return tokens[1:] # drop <sos>
 
 #
 #

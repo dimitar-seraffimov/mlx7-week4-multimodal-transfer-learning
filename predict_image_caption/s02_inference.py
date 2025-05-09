@@ -13,6 +13,7 @@ import os
 #
 
 # model artifact info
+# my best trained model from the saved wandb artifact model
 ARTIFACT_NAME = 'mlx7-dimitar-projects/mlx7-week4-multimodal/week4f_lickr30k_2025_05_08__12_46_54:latest'
 CHECKPOINT_FILENAME = 'clip_caption_model_local.pth'
 LOCAL_CHECKPOINT_DIR = './downloaded_artifacts'
@@ -22,14 +23,14 @@ MODEL_CHECKPOINT = os.path.join(LOCAL_CHECKPOINT_DIR, CHECKPOINT_FILENAME)
 # this model is trained on 20k samples from the Flickr30k dataset, 8 epochs
 
 if not os.path.exists(MODEL_CHECKPOINT):
-    print("Model checkpoint not found locally. Downloading from Weights & Biases...")
-    wandb.login()
-    run = wandb.init(project="mlx7-week4-multimodal", job_type="inference", reinit=True)
-    artifact = run.use_artifact(ARTIFACT_NAME, type='model')
-    artifact_dir = artifact.download(root=LOCAL_CHECKPOINT_DIR)
-    MODEL_CHECKPOINT = os.path.join(artifact_dir, CHECKPOINT_FILENAME)
+  print("Model checkpoint not found locally. Downloading from Weights & Biases...")
+  wandb.login()
+  run = wandb.init(project="mlx7-week4-multimodal", job_type="inference", reinit=True)
+  artifact = run.use_artifact(ARTIFACT_NAME, type='model')
+  artifact_dir = artifact.download(root=LOCAL_CHECKPOINT_DIR)
+  MODEL_CHECKPOINT = os.path.join(artifact_dir, CHECKPOINT_FILENAME)
 else:
-    print("Model checkpoint found locally. Using cached version.")
+  print("Model checkpoint found locally. Using cached version.")
 
 CLIP_MODEL = 'ViT-B-32'
 CLIP_PRETRAINED = 'openai'

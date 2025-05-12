@@ -1,8 +1,5 @@
 import psycopg2
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # validate required DB vars
 required_vars = ["POSTGRES_DB",

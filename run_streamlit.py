@@ -44,11 +44,22 @@ def ensure_checkpoint():
 def run_streamlit():
   """Run the Streamlit app."""
   port = int(os.environ.get("PORT", 8080))
+  print(f"Starting Streamlit on port {port}")
+
   os.environ["STREAMLIT_SERVER_PORT"] = str(port)
   os.environ["STREAMLIT_SERVER_ADDRESS"] = "0.0.0.0"
   os.environ["STREAMLIT_SERVER_HEADLESS"] = "true"
-  subprocess.run(["streamlit", "run", "streamlit_app.py"], check=True)
-
+  # run the Streamlit app
+  try:
+    subprocess.run([
+      sys.executable, "-m", # may delete this line
+      "streamlit", "run", "streamlit_app/app.py",
+      "--server.address=0.0.0.0",
+      f"--server.port={port}"
+    ], check=True)
+  except Exception as e:
+    print(f"Error running Streamlit: {e}")
+    sys.exit(1)
 
 if __name__ == "__main__":
   check_dependencies()

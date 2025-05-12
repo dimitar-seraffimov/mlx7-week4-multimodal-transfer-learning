@@ -8,6 +8,15 @@ In this week's project, the task is to build a **multimodal image captioning mod
 - use modern tokenization (SentencePiece) and decoding (greedy inference)
 
 This pipeline is inspired by the **"Attention is All You Need"** architecture.
+I have finalised the model, built a simple Streamlit web application, created a Dockerfile for deployment and deployed for demonstration on Google Cloud. The two main commands I used to create the Dockerfile image and deploy the created artefact as a service on Google Cloud Run (took it down after the demonstration - went out of free resources).
+
+```
+1. Build a Docker image from the local code + push it to Google Artifact Registry
+gcloud builds submit --tag europe-west2-docker.pkg.dev/mlx7-week4-predict-image/predict-image/predict:latest
+
+2. Deploy the image to Cloud Run as a publicly accessible service with specified memory and env variables
+gcloud run deploy predict --image europe-west2-docker.pkg.dev/mlx7-week4-predict-image/predict-image/predict:latest --region europe-west2 --platform managed --allow-unauthenticated --memory 4Gi --set-env-vars WANDB_API_KEY=xxxx,POSTGRES_DB=xxxxx,POSTGRES_USER=postgres,POSTGRES_PASSWORD=hiddenxxx,POSTGRES_HOST=xx.xxx.xx.xx,POSTGRES_PORT=5432
+```
 
 ---
 
@@ -119,3 +128,7 @@ Here are a few sample outputs generated using the trained model (I am getting th
 - [Flickr30k Dataset on HuggingFace](https://huggingface.co/datasets/nlphuji/flickr30k)
 - [CLIP: Contrastive Language–Image Pretraining](https://openai.com/research/clip)
 - [Attention is All You Need (Vaswani et al., 2017)](https://arxiv.org/abs/1706.03762)
+
+```
+
+```

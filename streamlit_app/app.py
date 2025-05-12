@@ -8,7 +8,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from predict_image_caption.caption_model import ImageCaptioningModel
 from open_clip import create_model_and_transforms, get_tokenizer
-from db_utils import init_db, save_caption, get_recent_captions
+from streamlit_app.db_utils import ensure_database_setup, save_caption, get_recent_captions
 
 #
 #
@@ -29,7 +29,7 @@ DB_PATH = 'captions.db'
 tokenizer = get_tokenizer(CLIP_MODEL)
 sos_id = tokenizer.encoder.get('<start_of_text>', 49406)
 eos_id = tokenizer.encoder.get('<end_of_text>', 49407)
-init_db()
+ensure_database_setup()
 
 #
 #
